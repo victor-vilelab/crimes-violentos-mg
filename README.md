@@ -364,10 +364,10 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 
 ## 👥 Autores
 
-Paulo Henrique Lima
-Raul Ferreira da Cruz Neto 
-Victor Cunha Marques
-Victor Vilela Batista
+Paulo Henrique Lima,
+Raul Ferreira da Cruz Neto,
+Victor Cunha Marques,
+Victor Vilela Batista.
 
 
 ---
