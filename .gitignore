@@ -8,9 +8,7 @@ __pycache__/
 .Python
 *.egg-info/
 .venv/
-venv/
-env/
-ENV/
+
 
 # ============================================================
 # Jupyter Notebook
@@ -75,8 +73,3 @@ logs/
 *.toc
 *.out
 relatorio_final.pdf
-
-# ============================================================
-# Memória local do Claude Code (não fica no projeto)
-# ============================================================
-.claude/

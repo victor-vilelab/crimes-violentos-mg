@@ -57,15 +57,22 @@ O trabalho está dividido em duas entregas:
 ## 🗂️ Estrutura do Repositório
 
 ```
-crimes_violentos/
-├── README.md                     # Este arquivo
-├── crimes_violentos_2025.csv     # Dados brutos — ano 2025
-├── crimes_violentos_2026.csv     # Dados brutos — janeiro a março de 2026
-├── criar_tabela_inicial.sql      # CREATE TABLE da tabela bruta crimes_raw
-├── arquivo.sql                   # Entrega parcial: banco não-normalizado + 5 consultas SQL
-└── (em breve)
-    ├── schema_normalizado.sql    # Entrega final: schema 3FN
-    └── relatorio_final.ipynb     # Entrega final: relatório com gráficos
+crimes-violentos-mg/
+├── README.md                          # Este arquivo
+├── data/
+│   └── raw/
+│       ├── crimes_violentos_2025.csv  # Dados brutos — ano 2025
+│       └── crimes_violentos_2026.csv  # Dados brutos — janeiro a março de 2026
+├── sql/
+│   ├── 01_criar_tabela_inicial.sql    # CREATE TABLE da tabela bruta crimes_raw
+│   ├── 02_consultas_parcial.sql       # Entrega parcial: 5 consultas em SQL
+│   ├── 03_schema_normalizado.sql      # Entrega final: schema 3FN (5 tabelas)
+│   ├── 04_migrar_dados.sql            # Migração crimes_raw → schema normalizado
+│   └── 05_enriquecer_dados.sql        # Classificação das naturezas em categorias
+└── docs/
+    └── diagramas/
+        ├── diagrama_er.jpeg           # Diagrama Entidade-Relacionamento
+        └── esquema_relacional.pdf     # Esquema relacional (PKs e FKs)
 ```
 
 ---
@@ -90,16 +97,16 @@ CREATE TABLE crimes_raw (
 );
 ```
 
-### Modelo Entidade-Relacionamento preliminar (para entrega final)
+### Schema normalizado em 3FN
 
-A análise dos dados identificou **5 entidades** que serão materializadas no schema normalizado da entrega final:
+O banco foi normalizado em **5 tabelas** (script em [`sql/03_schema_normalizado.sql`](sql/03_schema_normalizado.sql)). A migração dos dados de `crimes_raw` para o schema normalizado está em [`sql/04_migrar_dados.sql`](sql/04_migrar_dados.sql).
 
 | Entidade | Cardinalidade | Papel | Atributos principais |
 |---|---|---|---|
-| **Município** | 853 | Dimensão | `cod_ibge` (PK), `nome`, `população`, `pertence_rmbh`, `cod_risp` (FK) |
+| **Município** | 853 | Dimensão | `cod_ibge` (PK), `nome`, `pertence_rmbh`, `populacao`, `cod_risp` (FK) |
 | **RISP** | 19 | Dimensão | `cod_risp` (PK), `nome_sede` |
-| **Natureza** | 15 | Dimensão | `cod_natureza` (PK), `descrição`, `categoria`, `consumado` (booleano) |
-| **Período** | 15 | Dimensão | `id_periodo` (PK), `mês`, `ano`, `trimestre` |
+| **Natureza** | 15 | Dimensão | `cod_natureza` (PK), `descricao`, `categoria`, `consumado` (booleano) |
+| **Período** | 15 | Dimensão | `id_periodo` (PK), `mes`, `ano`, `trimestre` |
 | **Registro** | 191.925 | Fato | `id` (PK), `cod_municipio` (FK), `cod_natureza` (FK), `id_periodo` (FK), `quantidade` |
 
 #### Relacionamentos
@@ -110,19 +117,25 @@ A análise dos dados identificou **5 entidades** que serão materializadas no sc
 - `Registro` **ocorre em** `Período` — N:1
 - `Município` **registra** `Natureza` — N:M (relacionamento derivado, materializado pela tabela `Registro`)
 
-#### Atributos enriquecidos (entrega final)
+#### Atributos derivados e enriquecidos
 
-- `Município.população` → IBGE (Estimativas Populacionais)
-- `Natureza.categoria` → classificação manual (ex: "Crimes contra a vida", "Crimes contra a dignidade sexual", "Crimes contra o patrimônio")
-- `Natureza.consumado` → derivável do nome via parsing (todas as naturezas terminam em `CONSUMADO` ou `TENTADO`)
+- `Natureza.consumado` → derivado do nome via `LIKE '%CONSUMADO'` (todas as naturezas terminam em `CONSUMADO` ou `TENTADO`)
+- `Natureza.categoria` → classificação manual em **Crimes contra a vida**, **Crimes contra a dignidade sexual**, **Crimes contra o patrimônio** e **Crimes contra a liberdade pessoal** (script em [`sql/05_enriquecer_dados.sql`](sql/05_enriquecer_dados.sql))
+- `Período.trimestre` → derivado de `mes` na própria migração
 
-> 📐 **Diagrama ER:** será adicionado nesta seção quando finalizado.
+### Diagrama ER
+
+![Diagrama Entidade-Relacionamento](docs/diagramas/diagrama_er.jpeg)
+
+### Diagrama relacional
+
+O esquema relacional completo (com PKs, FKs e tipos) está em [`docs/diagramas/esquema_relacional.pdf`](docs/diagramas/esquema_relacional.pdf).
 
 ---
 
 ## 📈 Consultas
 
-As **5 consultas analíticas** da entrega parcial estão implementadas em `arquivo.sql` e expressas a seguir tanto em **SQL** quanto em **álgebra relacional** (notação clássica de Codd).
+As **5 consultas analíticas** da entrega parcial estão implementadas em [`sql/02_consultas_parcial.sql`](sql/02_consultas_parcial.sql) e expressas a seguir tanto em **SQL** quanto em **álgebra relacional** (notação clássica de Codd).
 
 ### Notação de álgebra relacional usada
 
@@ -249,7 +262,7 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 
 - PostgreSQL 16+
 - pgAdmin 4 (ou outro cliente SQL)
-- Os arquivos `crimes_violentos_2025.csv` e `crimes_violentos_2026.csv` na raiz do projeto
+- Os arquivos `crimes_violentos_2025.csv` e `crimes_violentos_2026.csv` em `data/raw/`
 
 ### Passo a passo
 
@@ -260,15 +273,15 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 
 2. **Conectar a `crimes_mg` e criar a tabela bruta:**
     ```sql
-    \i criar_tabela_inicial.sql
+    \i sql/01_criar_tabela_inicial.sql
     ```
 
 3. **Importar os CSVs.** Há dois caminhos:
 
     **Opção A — `\copy` (linha de comando):**
     ```sql
-    \copy crimes_raw(registros, natureza, municipio, cod_municipio, mes, ano, risp, rmbh) FROM 'crimes_violentos_2025.csv' WITH (FORMAT csv, HEADER true, DELIMITER ';', ENCODING 'UTF8');
-    \copy crimes_raw(registros, natureza, municipio, cod_municipio, mes, ano, risp, rmbh) FROM 'crimes_violentos_2026.csv' WITH (FORMAT csv, HEADER true, DELIMITER ';', ENCODING 'UTF8');
+    \copy crimes_raw(registros, natureza, municipio, cod_municipio, mes, ano, risp, rmbh) FROM 'data/raw/crimes_violentos_2025.csv' WITH (FORMAT csv, HEADER true, DELIMITER ';', ENCODING 'UTF8');
+    \copy crimes_raw(registros, natureza, municipio, cod_municipio, mes, ano, risp, rmbh) FROM 'data/raw/crimes_violentos_2026.csv' WITH (FORMAT csv, HEADER true, DELIMITER ';', ENCODING 'UTF8');
     ```
 
     **Opção B — Import/Export Tool do pgAdmin:**
@@ -286,7 +299,22 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 
 5. **Rodar as consultas da entrega parcial:**
     ```sql
-    \i arquivo.sql
+    \i sql/02_consultas_parcial.sql
+    ```
+
+6. **Criar o schema normalizado em 3FN:**
+    ```sql
+    \i sql/03_schema_normalizado.sql
+    ```
+
+7. **Migrar os dados de `crimes_raw` para as 5 tabelas normalizadas:**
+    ```sql
+    \i sql/04_migrar_dados.sql
+    ```
+
+8. **Classificar as 15 naturezas em categorias:**
+    ```sql
+    \i sql/05_enriquecer_dados.sql
     ```
 
 ---
@@ -295,8 +323,7 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 
 - **PostgreSQL 16.13** — SGBD relacional
 - **pgAdmin 4** — interface gráfica para administração e consultas
-- **Python 3 + pandas** — pré-processamento e enriquecimento (entrega final)
-- **Jupyter Notebook** — relatório final com gráficos
+- **draw.io** — diagrama ER e esquema relacional
 - **Git** — controle de versão
 
 ---
@@ -323,12 +350,12 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 - [x] Validação preliminar do modelo ER (5 entidades identificadas)
 - [x] 5 consultas SQL implementadas e testadas
 - [x] 5 consultas traduzidas para álgebra relacional
-- [ ] Diagrama ER preliminar (visual)
 
 ### Entrega final
-- [ ] Schema normalizado em 3FN (5 tabelas com PKs e FKs)
-- [ ] Integração com dados de população (IBGE)
-- [ ] Classificação manual de categorias de naturezas
+- [x] Diagrama ER e esquema relacional (visual)
+- [x] Schema normalizado em 3FN (5 tabelas com PKs e FKs)
+- [x] Migração dos dados de `crimes_raw` para o schema normalizado
+- [x] Classificação manual de categorias de naturezas
 - [ ] Consultas analíticas com JOINs
 - [ ] Relatório final (Jupyter Notebook + PDF)
 - [ ] Apresentação
@@ -337,7 +364,11 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 
 ## 👥 Autores
 
-_A preencher com os membros do grupo._
+Paulo Henrique Lima
+Raul Ferreira da Cruz Neto 
+Victor Cunha Marques
+Victor Vilela Batista
+
 
 ---
 
@@ -347,7 +378,6 @@ _A preencher com os membros do grupo._
 - [Dataset Crimes Violentos](https://dados.mg.gov.br/dataset/crimes-violentos)
 - [Documentação PostgreSQL](https://www.postgresql.org/docs/)
 - [Documentação pgAdmin](https://www.pgadmin.org/docs/)
-- [IBGE — Estimativas Populacionais](https://www.ibge.gov.br/estatisticas/sociais/populacao.html)
 
 ---
 
