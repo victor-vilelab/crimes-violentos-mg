@@ -21,3 +21,6 @@ ORDER BY qtd_naturezas DESC;
 SELECT DISTINCT categoria
 FROM natureza;
 
+
+-- Falta enriquecer com a população e com o financeiro de cada cidade
+
