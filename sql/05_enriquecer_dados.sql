@@ -22,4 +22,13 @@ SELECT DISTINCT categoria
 FROM natureza;
 
 
--- Falta enriquecer com a população e com o financeiro de cada cidade
+-- Preenche a população dos municípios usando a tabela de apoio carregada no notebook
+UPDATE municipio m
+SET populacao = p.populacao
+FROM stg_populacao p
+WHERE m.cod_ibge = (p.cod_ibge / 10)::INTEGER;
+
+-- Tem que mostrar 853 municípios com população preenchida
+SELECT COUNT(*) AS municipios_com_populacao
+FROM municipio
+WHERE populacao IS NOT NULL;
