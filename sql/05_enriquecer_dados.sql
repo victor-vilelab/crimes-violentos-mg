@@ -23,6 +23,9 @@ FROM natureza;
 
 
 -- Preenche a população dos municípios usando a tabela de apoio carregada no notebook
+-- O CSV usa o código IBGE de 7 dígitos (com dígito verificador, ex: 3100104)
+-- e a tabela municipio usa o de 6 dígitos (ex: 310010). Dividir por 10 remove
+-- o último dígito e faz os dois baterem.
 UPDATE municipio m
 SET populacao = p.populacao
 FROM stg_populacao p
