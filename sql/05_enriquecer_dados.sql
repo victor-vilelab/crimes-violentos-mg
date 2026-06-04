@@ -10,7 +10,7 @@ UPDATE natureza SET categoria = CASE
     WHEN descricao LIKE '%CARCERE%' THEN 'Crimes contra a liberdade pessoal'
 END;
 
--- Retorna 5 crimes contra patrimônio, 3 contra diginidade, 4 contra a vida, 2 contra a liberdade
+-- Retorna 5 crimes contra patrimônio, 4 contra dignidade, 4 contra a vida, 2 contra a liberdade
 SELECT categoria, COUNT(*) AS qtd_naturezas
 FROM natureza
 GROUP BY categoria
@@ -22,40 +22,4 @@ SELECT DISTINCT categoria
 FROM natureza;
 
 
-
-
--- 1) Tabela de carga (staging) com as MESMAS colunas do CSV.
---    Usamos IF NOT EXISTS porque no notebook a tabela já é criada e populada
---    via pandas antes deste script rodar; no pgAdmin ela é criada aqui e o CSV
---    é importado pela interface no passo seguinte.
-CREATE TABLE IF NOT EXISTS stg_populacao (
-    cod_ibge             INTEGER,
-    nome                 VARCHAR(100),
-    populacao            INTEGER,
-    populacao_censo_2022 INTEGER
-);
-
--- 2) Importar o CSV para stg_populacao.
---    No pgAdmin: clique direito na tabela stg_populacao > "Import/Export Data...",
---    escolha o arquivo municipios_mg_populacao_limpo.csv, Header = Yes, Delimiter = ','.
---
---    Alternativa por SQL (o servidor PostgreSQL precisa conseguir ler o arquivo):
--- COPY stg_populacao FROM '/caminho/para/municipios_mg_populacao_limpo.csv'
---      WITH (FORMAT csv, HEADER true);
-
--- 3) Atualizar a tabela municipio com a população.
---    ATENÇÃO: o CSV usa o código IBGE de 7 dígitos (com dígito verificador, ex: 3100104)
---    e a tabela municipio usa o de 6 dígitos (ex: 310010). Dividir por 10 remove
---    o último dígito e faz os dois baterem.
-UPDATE municipio m
-SET populacao = s.populacao
-FROM stg_populacao s
-WHERE s.cod_ibge / 10 = m.cod_ibge;
-
--- Conferência: idealmente 0 municípios sem população
-SELECT COUNT(*) AS municipios_sem_populacao
-FROM municipio
-WHERE populacao IS NULL;
-
-
-
+-- Falta enriquecer com a população e com o financeiro de cada cidade
