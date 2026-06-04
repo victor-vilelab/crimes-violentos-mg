@@ -119,7 +119,7 @@ O banco foi normalizado em **5 tabelas** (script em [`sql/03_schema_normalizado.
 
 #### Atributos derivados e enriquecidos
 
-- `Natureza.consumado` → derivado do nome via `LIKE '%CONSUMADO'` (todas as naturezas terminam em `CONSUMADO` ou `TENTADO`)
+- `Natureza.consumado` → derivado do nome via `LIKE '%CONSUMADO%'`, pois algumas descrições trazem observações como `(REGISTROS)` após `CONSUMADO`
 - `Natureza.categoria` → classificação manual em **Crimes contra a vida**, **Crimes contra a dignidade sexual**, **Crimes contra o patrimônio** e **Crimes contra a liberdade pessoal** (script em [`sql/05_enriquecer_dados.sql`](sql/05_enriquecer_dados.sql))
 - `Período.trimestre` → derivado de `mes` na própria migração
 
