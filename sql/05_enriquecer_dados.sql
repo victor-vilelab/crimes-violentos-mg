@@ -10,7 +10,7 @@ UPDATE natureza SET categoria = CASE
     WHEN descricao LIKE '%CARCERE%' THEN 'Crimes contra a liberdade pessoal'
 END;
 
--- Retorna 5 crimes contra patrimônio, 3 contra diginidade, 4 contra a vida, 2 contra a liberdade
+-- Retorna 5 crimes contra patrimônio, 4 contra dignidade, 4 contra a vida, 2 contra a liberdade
 SELECT categoria, COUNT(*) AS qtd_naturezas
 FROM natureza
 GROUP BY categoria
@@ -23,4 +23,3 @@ FROM natureza;
 
 
 -- Falta enriquecer com a população e com o financeiro de cada cidade
-

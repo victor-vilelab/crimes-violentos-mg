@@ -25,7 +25,7 @@ SELECT COUNT(*) AS qtd_municipios FROM municipio;
 INSERT INTO natureza (descricao, consumado)
 SELECT DISTINCT
     natureza AS descricao,
-    CASE WHEN natureza LIKE '%CONSUMADO' THEN TRUE ELSE FALSE END AS consumado
+    CASE WHEN natureza LIKE '%CONSUMADO%' THEN TRUE ELSE FALSE END AS consumado
 FROM crimes_raw
 ORDER BY natureza;
 
@@ -61,4 +61,3 @@ SELECT COUNT(*) AS qtd_registros FROM registro;
 
 -- retorna 31620
 SELECT SUM(quantidade) AS total_ocorrencias FROM registro;
-
