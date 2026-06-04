@@ -23,12 +23,9 @@ FROM natureza;
 
 
 
-
--- 1) Tabela de carga (staging) com as MESMAS colunas do CSV.
---    Usamos IF NOT EXISTS porque no notebook a tabela já é criada e populada
---    via pandas antes deste script rodar; no pgAdmin ela é criada aqui e o CSV
---    é importado pela interface no passo seguinte.
-CREATE TABLE IF NOT EXISTS stg_populacao (
+-- 1) Tabela de carga (staging) com as MESMAS colunas do CSV
+DROP TABLE IF EXISTS stg_populacao;
+CREATE TABLE stg_populacao (
     cod_ibge             INTEGER,
     nome                 VARCHAR(100),
     populacao            INTEGER,
@@ -47,15 +44,14 @@ CREATE TABLE IF NOT EXISTS stg_populacao (
 --    ATENÇÃO: o CSV usa o código IBGE de 7 dígitos (com dígito verificador, ex: 3100104)
 --    e a tabela municipio usa o de 6 dígitos (ex: 310010). Dividir por 10 remove
 --    o último dígito e faz os dois baterem.
+
 UPDATE municipio m
 SET populacao = s.populacao
 FROM stg_populacao s
 WHERE s.cod_ibge / 10 = m.cod_ibge;
 
--- Conferência: idealmente 0 municípios sem população
+-- 0 municípios sem população
 SELECT COUNT(*) AS municipios_sem_populacao
 FROM municipio
 WHERE populacao IS NULL;
-
-
 
