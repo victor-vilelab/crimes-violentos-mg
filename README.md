@@ -150,94 +150,83 @@ As **5 consultas analíticas** da entrega parcial estão implementadas em [`sql/
 
 ### Consulta 1 — Naturezas de crime distintas
 
-**Pergunta:** Quais são as naturezas de crime distintas registradas?
+**Pergunta:** Quais são as naturezas de crime consumado registradas no estado e suas respectivas frequências?
 
 **SQL:**
 ```sql
-SELECT DISTINCT natureza FROM crimes_raw ORDER BY natureza;
+SELECT n.descricao, SUM(r.quantidade)
+    FROM natureza n JOIN registro r 
+    ON r.cod_natureza = n.cod_natureza
+    WHERE n.consumado = TRUE
+    GROUP BY n.descricao ORDER BY frequencia ASC;
 ```
 
-**Álgebra relacional:**
-```
-π_natureza (crimes_raw)
-```
+**Álgebra relacional:** $\pi_{descricao; \ SUM(quantidade) \to frequencia}(\sigma_{consumado = TRUE}(natureza \bowtie registro))$
+
 
 ---
 
-### Consulta 2 — Municípios e naturezas na RMBH
+### Consulta 2 — Municípios na RMBH
 
-**Pergunta:** Listar os municípios e as naturezas dos crimes que ocorreram na Região Metropolitana de Belo Horizonte em 2025.
+**Pergunta:** Quais municípios pertencem à Região Metropolitana de Belo Horizonte (RMBH)?
 
 **SQL:**
 ```sql
-SELECT DISTINCT municipio, natureza
-FROM crimes_raw
-WHERE rmbh = 'SIM' AND ano = 2025 AND registros > 0;
+SELECT nome FROM municipio
+    WHERE pertence_rmbh = TRUE
+    ORDER BY nome
 ```
 
-**Álgebra relacional:**
-```
-π_(municipio, natureza) ( σ_(rmbh = 'SIM' ∧ ano = 2025 ∧ registros > 0) (crimes_raw) )
-```
+**Álgebra relacional:** $\pi_{nome}(\sigma_{pertence\_rmbh = TRUE}(municipio))$
 
 ---
 
-### Consulta 3 — Municípios com registros em dezembro de 2025
+### Consulta 3 — Municípios em cada região RISP
 
-**Pergunta:** Listar os municípios que tiveram pelo menos um crime registrado em dezembro de 2025.
+**Pergunta:** Qual a quantidade total de municípios sob a responsabilidade de cada sede de RISP?
 
 **SQL:**
 ```sql
-SELECT DISTINCT municipio
-FROM crimes_raw
-WHERE ano = 2025 AND mes = 12 AND registros > 0;
+SELECT r.nome_sede, COUNT(m.cod_ibge)
+    FROM municipio m JOIN risp r 
+    ON r.cod_risp = m.cod_risp
+    GROUP BY r.nome_sede ORDER BY qtd_municipios ASC;
 ```
 
-**Álgebra relacional:**
-```
-π_municipio ( σ_(ano = 2025 ∧ mes = 12 ∧ registros > 0) (crimes_raw) )
-```
+**Álgebra relacional:** $\pi_{nome\_sede; COUNT(cod_ibge)}​(risp⋈cod_risp​municipio)$
 
 ---
 
-### Consulta 4 — Municípios com registros em janeiro de 2025 ou janeiro de 2026
+### Consulta 4 — Naturezas com ocorrências registradas
 
-**Pergunta:** Quais municípios registraram crimes no mês 1 de 2025 ou no mês 1 de 2026?
+**Pergunta:** Quais naturezas de crime tiveram pelo menos uma ocorrência registrada (em qualquer município/mês)?
 
 **SQL:**
 ```sql
-SELECT DISTINCT municipio, mes, ano
-FROM crimes_raw
-WHERE mes = 1 AND ano IN (2025, 2026) AND registros > 0;
+SELECT DISTINCT n.descricao 
+    FROM natureza n JOIN registro r 
+    ON r.cod_natureza = n.cod_natureza 
+    WHERE r.quantidade > 0
+    ORDER BY n.descricao
 ```
 
-**Álgebra relacional (forma com união explícita):**
-```
-π_municipio ( σ_(mes = 1 ∧ ano = 2025 ∧ registros > 0) (crimes_raw) )
-∪
-π_municipio ( σ_(mes = 1 ∧ ano = 2026 ∧ registros > 0) (crimes_raw) )
-```
+**Álgebra relacional (forma com união explícita):** $\pi_{descricao}(\sigma_{quantidade > 0}(natureza \bowtie registro))$
 
 ---
 
-### Consulta 5 — Municípios SEM registros em dezembro de 2025
+### Consulta 5 — Meses com mais crimes de mesmo tipo (2025)
 
-**Pergunta:** Quais municípios **não** registraram nenhum crime em dezembro de 2025?
+**Pergunta:** Quais meses apresentam a maior quantidade de eventos críticos (registros com 50 ou mais ocorrências)?
 
 **SQL:**
 ```sql
-SELECT DISTINCT municipio FROM crimes_raw
-EXCEPT
-SELECT DISTINCT municipio FROM crimes_raw
-WHERE ano = 2025 AND mes = 12 AND registros > 0;
+SELECT p.mes, COUNT(r.id)
+    FROM periodo p LEFT JOIN registro r 
+    ON r.id_periodo = p.id_periodo AND r.quantidade >= 50
+    GROUP BY p.mes ORDER BY p.mes ASC;
 ```
 
-**Álgebra relacional:**
-```
-π_municipio (crimes_raw)
-−
-π_municipio ( σ_(ano = 2025 ∧ mes = 12 ∧ registros > 0) (crimes_raw) )
-```
+**Álgebra relacional:** $\pi_{mes; COUNT(id)→qte-eventos-criticos}(\sigma_{quantidade≥50}(registro \bowtie periodo))$
 
 ---
 
@@ -248,11 +237,7 @@ As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra
 | Operador | Usado em |
 |---|---|
 | **π** (projeção) | Q1, Q2, Q3, Q4, Q5 |
-| **σ** (seleção) | Q2, Q3, Q4, Q5 |
-| **∪** (união) | Q4 |
-| **−** (diferença) | Q5 |
-
-> O operador **⋈** (junção) será exercitado na entrega final, quando o banco estiver normalizado em 5 tabelas.
+| **σ** (seleção) | Q1, Q2, Q4, Q5 |
 
 ---
 
