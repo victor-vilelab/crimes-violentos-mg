@@ -143,8 +143,7 @@ As **5 consultas analíticas** da entrega parcial estão implementadas em [`sql/
 |---|---|
 | **π** | Projeção (selecionar colunas) |
 | **σ** | Seleção (filtrar linhas) |
-| **∪** | União |
-| **−** | Diferença |
+| **$\bowtie$** | Junção |
 
 ---
 
@@ -230,14 +229,233 @@ SELECT p.mes, COUNT(r.id)
 
 ---
 
-### Cobertura de operadores
+### Consulta 6 — Crimes distintos em BH e região
 
-As 5 consultas, em conjunto, exercitam **4 operadores fundamentais** da álgebra relacional:
+**Pergunta:** Quantas naturezas distintas de crimes violentos foram registradas em cada município da RMBH no ano de 2025?
 
-| Operador | Usado em |
-|---|---|
-| **π** (projeção) | Q1, Q2, Q3, Q4, Q5 |
-| **σ** (seleção) | Q1, Q2, Q4, Q5 |
+**SQL:**
+```sql
+SELECT m.nome; COUNT(DISTINCT n.cod_natureza)
+    FROM municipio m 
+    JOIN registro  r ON r.cod_municipio = m.cod_ibge
+    JOIN natureza  n ON n.cod_natureza  = r.cod_natureza
+    JOIN periodo   p ON p.id_periodo    = r.id_periodo
+    WHERE m.pertence_rmbh = TRUE AND p.ano = 2025 AND r.quantidade > 0
+    GROUP BY m.nome ORDER BY variedade_crimes ASC;
+```
+
+**Álgebra relacional:** $\gamma_{m.nome; COUNT(DISTINCT ncod\ natureza)}(\sigma_{m.pertence\_rmbh=TRUE∧p.ano=2025∧r.quantidadde>0}(municipio \bowtie registro \bowtie natureza \bowtie periodo))$
+
+---
+
+### Consulta 7 — Crimes em Dezembro 2025
+
+**Pergunta:** Quantos municípios tiveram pelo menos um crime registrado no mês de dezembro de 2025?
+
+**SQL:**
+```sql
+SELECT COUNT(DISTINCT r.cod_municipio)
+    FROM registro r
+    JOIN periodo p ON p.id_periodo = r.id_periodo
+    WHERE p.ano = 2025 AND p.mes = 12 AND r.quantidade > 0;
+```
+
+**Álgebra relacional:** $\gamma_{COUNT(DISTINCT cod\_municipio)→qtd_municipios}(\sigma_{ano=2025 \land mes=12 \land qtd>0}(registro \bowtie periodo))$
+
+---
+
+### Consulta 8 — Primeiros crimes do ano
+
+**Pergunta:** Quantos municípios que tiveram pelo menos um crime registrado em 2026 tiveram ocorrências registradas somente no mês de janeiro?
+
+**SQL:**
+```sql
+WITH municipios_jan AS (
+        SELECT DISTINCT r.cod_municipio
+        FROM registro r
+        JOIN periodo p ON p.id_periodo = r.id_periodo
+        WHERE p.ano = 2026 AND p.mes = 1 AND r.quantidade > 0
+    ),
+    municipios_fev_mar AS (
+        SELECT DISTINCT r.cod_municipio
+        FROM registro r
+        JOIN periodo p ON p.id_periodo = r.id_periodo
+        WHERE p.ano = 2026 AND p.mes IN (2, 3) AND r.quantidade > 0
+    ),
+    exclusivos_jan AS (
+        SELECT cod_municipio FROM municipios_jan
+        EXCEPT
+        SELECT cod_municipio FROM municipios_fev_mar
+    )
+    SELECT COUNT(*) AS qtd_municipios_exclusivos 
+    FROM exclusivos_jan;
+```
+
+**Álgebra relacional:** $\sigma_{COUNT(cod\_ibge)→qtd_municipios}(\pi_{cod\_ibge}(\sigma{ano=2026∧mes=1∧quantidade>0}(municipio \bowtie registro \bowtie periodo))$
+
+---
+
+### Consulta 9 — Ranking de criminalidade absoluta
+
+**Pergunta:** Quais são os 10 municípios com maior número total de crimes registrados em todo o período?
+
+**SQL:**
+```sql
+SELECT m.nome; SUM(r.quantidade)
+    FROM municipio m
+    JOIN registro  r ON r.cod_municipio = m.cod_ibge
+    GROUP BY m.nome ORDER BY total_crimes DESC
+    LIMIT 10
+```
+
+**Álgebra relacional:** $\tau_{total\ DESC}(\gamma_{nome;\ SUM(quantidade) \to total}(municipio \bowtie registro))$
+
+---
+
+### Consulta 10 — Distribuição dos registros nas regiões
+
+**Pergunta:** Qual o total de crimes registrados por RISP em 2025?
+
+**SQL:**
+```sql
+SELECT rp.nome_sede; SUM(re.quantidade)
+    FROM risp rp
+    JOIN municipio m ON m.cod_risp = rp.cod_risp
+    JOIN registro  re ON re.cod_municipio = m.cod_ibge
+    JOIN periodo   p ON p.id_periodo = re.id_periodo
+    WHERE p.ano = 2025
+    GROUP BY rp.nome_sede ORDER BY total_crimes DESC
+```
+
+**Álgebra relacional:** $\gamma_{nome\_sede;\ SUM(quantidade) \to total}(\sigma_{ano=2025}(risp \bowtie municipio \bowtie registro \bowtie periodo))$
+
+---
+
+### Consulta 11 — Maior e menor ocorrência de crimes no ano
+
+**Pergunta:** Quais meses apresentam picos e vales de ocorrências em cada ano?
+
+**SQL:**
+```sql
+WITH totais_mensais AS (
+        SELECT
+            p.ano,
+            p.mes,
+            SUM(r.quantidade) AS total_ocorrencias
+        FROM periodo p
+        JOIN registro r ON r.id_periodo = p.id_periodo
+        GROUP BY p.ano, p.mes
+    ),
+    meses_classificados AS (
+        SELECT
+            ano,
+            mes,
+            total_ocorrencias,
+            RANK() OVER (PARTITION BY ano ORDER BY total_ocorrencias DESC) AS rank_pico,
+            RANK() OVER (PARTITION BY ano ORDER BY total_ocorrencias ASC) AS rank_vale
+        FROM totais_mensais
+    )
+    SELECT
+        ano,
+        mes,
+        total_ocorrencias,
+        CASE
+            WHEN rank_pico = 1 THEN 'Pico'
+            WHEN rank_vale = 1 THEN 'Vale'
+        END AS tipo_sazonalidade
+    FROM meses_classificados
+    WHERE rank_pico = 1 OR rank_vale = 1
+    ORDER BY ano, mes
+```
+
+**Álgebra relacional:** $\gamma_{ano,\ mes;\ SUM(quantidade) \to total}(periodo \bowtie registro)$
+
+---
+
+### Consulta 12 — Tentativas mais frequente
+
+**Pergunta:** Em quais modalidades a tentativa é mais frequente em relação aos crimes consumados?
+
+**SQL:**
+```sql
+WITH totais_por_modalidade AS (
+        SELECT
+            REGEXP_REPLACE(n.descricao, ' (CONSUMADO|TENTADO).*$', '') AS modalidade,
+            SUM(CASE WHEN n.consumado = TRUE THEN r.quantidade ELSE 0 END) AS total_consumado,
+            SUM(CASE WHEN n.consumado = FALSE THEN r.quantidade ELSE 0 END) AS total_tentado
+        FROM natureza n
+        JOIN registro r ON r.cod_natureza = n.cod_natureza
+        GROUP BY modalidade
+    )
+    SELECT
+        modalidade,
+        total_consumado,
+        total_tentado,
+        ROUND(total_tentado::NUMERIC / NULLIF(total_consumado, 0), 2) AS razao_tentado_consumado,
+        ROUND((total_tentado::NUMERIC / NULLIF(total_consumado + total_tentado, 0)) * 100, 2) AS percentual_tentado
+    FROM totais_por_modalidade
+    WHERE total_tentado > 0
+    ORDER BY razao_tentado_consumado DESC
+```
+
+**Álgebra relacional:** $\gamma_{modalidade;\ SUM(tentado) \to total\_tentado,\ SUM(consumado) \to total\_consumado}(natureza \bowtie registro)$, seguida do cálculo $total\_tentado / total\_consumado$
+
+---
+
+### Consulta 13 — Alvo mais frequente dos crimes
+
+**Pergunta:** Em cada RISP, predominam crimes contra o patrimônio ou crimes contra a pessoa?
+
+**SQL:**
+```sql
+WITH totais_por_risp AS (
+        SELECT
+            ri.nome_sede AS risp,
+            SUM(CASE WHEN n.categoria = 'Crimes contra o patrimônio' THEN r.quantidade ELSE 0 END) AS total_patrimonio,
+            SUM(CASE WHEN n.categoria <> 'Crimes contra o patrimônio' THEN r.quantidade ELSE 0 END) AS total_pessoa
+        FROM risp ri
+        JOIN municipio m ON m.cod_risp = ri.cod_risp
+        JOIN registro r ON r.cod_municipio = m.cod_ibge
+        JOIN natureza n ON n.cod_natureza = r.cod_natureza
+        GROUP BY ri.nome_sede
+    )
+    SELECT
+        risp,
+        total_patrimonio,
+        total_pessoa,
+        total_patrimonio + total_pessoa AS total_geral,
+        ROUND((total_patrimonio::NUMERIC / NULLIF(total_patrimonio + total_pessoa, 0)) * 100, 2) AS percentual_patrimonio,
+        ROUND((total_pessoa::NUMERIC / NULLIF(total_patrimonio + total_pessoa, 0)) * 100, 2) AS percentual_pessoa,
+        CASE
+            WHEN total_patrimonio > total_pessoa THEN 'Patrimônio'
+            WHEN total_pessoa > total_patrimonio THEN 'Pessoa'
+            ELSE 'Empate'
+        END AS predominancia
+    FROM totais_por_risp
+    ORDER BY total_geral DESC
+```
+
+**Álgebra relacional:** $\gamma_{risp;\ SUM(patrimonio) \to total\_patrimonio,\ SUM(pessoa) \to total\_pessoa}(risp \bowtie municipio \bowtie registro \bowtie natureza)$
+
+---
+
+### Consulta 14 — Taxa de criminalidade
+
+**Pergunta:** Entre as cidades grandes (mais de 100 mil habitantes), quais apresentam as maiores taxas de criminalidade por 100 mil habitantes?
+
+**SQL:**
+```sql
+SELECT m.nome; ri.nome_sede; m.populacao; SUM(r.quantidade); ROUND(SUM(r.quantidade) * 100000.0 / m.populacao, 2)
+    FROM municipio m
+    JOIN registro  r  ON r.cod_municipio = m.cod_ibge
+    JOIN risp      ri ON ri.cod_risp     = m.cod_risp
+    WHERE m.populacao IS NOT NULL AND m.populacao > 0
+    GROUP BY m.cod_ibge, m.nome, ri.nome_sede, m.populacao
+    ORDER BY taxa_por_100mil DESC
+    LIMIT 10
+```
+
+**Álgebra relacional:** $\gamma_{nome,\ populacao;\ SUM(quantidade) \to total}(\sigma_{populacao>100000}(municipio \bowtie registro \bowtie risp))$
 
 ---
 
